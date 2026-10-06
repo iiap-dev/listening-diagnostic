@@ -215,7 +215,7 @@ function App() {
         <div className="audio-section">
           <audio
             ref={audioRef}
-            src={currentQuestion.audio}
+            src={`${import.meta.env.BASE_URL}${currentQuestion.audio.replace(/^\/+/, '')}`}
             preload="metadata"
             onEnded={() => setIsPlaying(false)}
           />
