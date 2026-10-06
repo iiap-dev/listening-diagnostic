@@ -95,6 +95,7 @@ function App() {
   }
 
   const handleNext = async () => {
+    if (isSubmitting) return
     if (!canContinue) return
 
     if (currentIndex === questions.length - 1) {
