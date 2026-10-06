@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import questions from './data/questions.json'
 
 const GOOGLE_SCRIPT_URL =
@@ -38,6 +38,9 @@ function App() {
   const [playCount, setPlayCount] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  useEffect(() => {
+  window.scrollTo(0, 0)
+}, [currentIndex, screen])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -67,18 +70,12 @@ function App() {
     setScreen('test')
   }
 
-  const handlePlay = () => {
-    if (!audioRef.current || playCount >= 2 || isPlaying) return
-
-    setIsPlaying(true)
-    setPlayCount((count) => count + 1)
-
-    audioRef.current.currentTime = 0
-
-    audioRef.current.play().catch(() => {
-      setIsPlaying(false)
-    })
-  }
+    const handlePlay = () => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0
+        audioRef.current.play()
+      }
+    }
 
   const handleAnswer = (questionId: string, optionId: string) => {
     setAnswers((previous) => ({
@@ -215,7 +212,7 @@ function App() {
         <h1>Question {currentIndex + 1}</h1>
 
         <p className="instruction">
-          Прослухайте аудіо. Ви можете прослухати його максимум двічі.
+          Прослухайте аудіо.
         </p>
 
         <div className="audio-section">
