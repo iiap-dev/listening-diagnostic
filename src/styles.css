@@ -169,6 +169,18 @@ input[type='text']:focus {
 
 .next-button {
   margin-top: 8px;
+  position: sticky;
+  bottom: 12px;
+  z-index: 10;
+}
+
+.next-button-container {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  background: white;
 }
 
 .thankyou-card {

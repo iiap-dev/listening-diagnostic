@@ -71,10 +71,15 @@ function App() {
   }
 
     const handlePlay = () => {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0
-        audioRef.current.play()
+      if (!audioRef.current) return
+    
+      if (isPlaying) {
+        audioRef.current.pause()
+        return
       }
+    
+      audioRef.current.currentTime = 0
+      audioRef.current.play()
     }
 
   const handleAnswer = (questionId: string, optionId: string) => {
@@ -202,6 +207,15 @@ function App() {
     )
   }
 
+  const questionCount = currentQuestion.subquestions?.length ?? 1
+
+const questionInstruction =
+  questionCount === 1
+    ? 'Дайте відповідь на одне питання нижче.'
+    : questionCount === 2
+      ? 'Дайте відповідь на два питання нижче.'
+      : `Дайте відповідь на ${questionCount} питання нижче.`
+
   return (
     <main className="app">
       <section className="card test-card">
@@ -220,20 +234,18 @@ function App() {
             ref={audioRef}
             src={`${import.meta.env.BASE_URL}${currentQuestion.audio.replace(/^\/+/, '')}`}
             preload="metadata"
-            onEnded={() => setIsPlaying(false)}
-          />
+              onPlay={() => setIsPlaying(true)}
+              onEnded={() => setIsPlaying(false)}
+              onPause={() => setIsPlaying(false)}
+            />
 
           <button
             className="play-button"
             onClick={handlePlay}
             disabled={playCount >= 2 || isPlaying}
           >
-            {isPlaying ? 'Playing...' : '▶ Play audio'}
+            {isPlaying ? '⏹ Stop' : '▶ Play'}
           </button>
-
-          <p className="play-counter">
-            Прослуховувань: {playCount} / 2
-          </p>
         </div>
 
         {currentQuestion.question && currentQuestion.options && (
@@ -265,7 +277,7 @@ function App() {
         {currentQuestion.subquestions && (
           <div className="subquestions">
             <p className="answer-instruction">
-              Прослухайте аудіо та дайте відповіді на всі питання нижче.
+              {questionInstruction}
             </p>
 
             {currentQuestion.subquestions.map((subquestion) => (
@@ -308,17 +320,19 @@ function App() {
           />
         </div>
 
-        <button
-          className="primary-button next-button"
-          onClick={handleNext}
-          disabled={!canContinue}
-        >
-           {currentIndex === questions.length - 1
-    ? isSubmitting
-      ? 'Sending...'
-      : 'Submit'
-    : 'Next'}
-        </button>
+        <div className="next-button-container">
+          <button
+            className="primary-button next-button"
+            onClick={handleNext}
+            disabled={!canContinue}
+          >
+            {currentIndex === questions.length - 1
+              ? isSubmitting
+                ? 'Sending...'
+                : 'Submit'
+              : 'Next'}
+          </button>
+        </div>
       </section>
     </main>
   )
