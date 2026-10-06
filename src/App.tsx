@@ -35,12 +35,12 @@ function App() {
   const [answers, setAnswers] = useState<Answers>({})
   const [heardWords, setHeardWords] = useState<HeardWords>({})
 
-  const [playCount, setPlayCount] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
   useEffect(() => {
-  window.scrollTo(0, 0)
-}, [currentIndex, screen])
+    window.scrollTo(0, 0)
+  }, [currentIndex, screen])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -54,15 +54,15 @@ function App() {
     return [question.id]
   }
 
-    const hasHeardWords = Boolean(
-      heardWords[currentQuestion.id]?.trim(),
-    )
-    
-    const hasAllAnswers = getRequiredAnswerIds(currentQuestion).every(
-      (id) => answers[id],
-    )
-    
-    const canContinue = hasAllAnswers || hasHeardWords
+  const hasHeardWords = Boolean(
+    heardWords[currentQuestion.id]?.trim(),
+  )
+
+  const hasAllAnswers = getRequiredAnswerIds(currentQuestion).every(
+    (id) => answers[id],
+  )
+
+  const canContinue = hasAllAnswers || hasHeardWords
 
   const handleStart = () => {
     if (!group.trim() || !fullName.trim()) return
@@ -70,17 +70,17 @@ function App() {
     setScreen('test')
   }
 
-    const handlePlay = () => {
-      if (!audioRef.current) return
-    
-      if (isPlaying) {
-        audioRef.current.pause()
-        return
-      }
-    
-      audioRef.current.currentTime = 0
-      audioRef.current.play()
+  const handlePlay = () => {
+    if (!audioRef.current) return
+
+    if (isPlaying) {
+      audioRef.current.pause()
+      return
     }
+
+    audioRef.current.currentTime = 0
+    audioRef.current.play()
+  }
 
   const handleAnswer = (questionId: string, optionId: string) => {
     setAnswers((previous) => ({
@@ -101,53 +101,52 @@ function App() {
     if (!canContinue) return
 
     if (currentIndex === questions.length - 1) {
-    setIsSubmitting(true)
-    
-    const completeAnswers: Answers = {}
-    
-    questions.forEach((question) => {
-      const current = question as Question
-    
-      if (current.subquestions) {
-        current.subquestions.forEach((subquestion) => {
-          completeAnswers[subquestion.id] = answers[subquestion.id] ?? ''
-        })
-      } else {
-        completeAnswers[current.id] = answers[current.id] ?? ''
-      }
-    })
-    
-    const submission = {
-      timestamp: new Date().toISOString(),
-      group: group.trim(),
-      fullName: fullName.trim(),
-      answers: completeAnswers,
-      heardWords,
-    }
-    
-    try {
-      await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        body: JSON.stringify(submission),
+      setIsSubmitting(true)
+
+      const completeAnswers: Answers = {}
+
+      questions.forEach((question) => {
+        const current = question as Question
+
+        if (current.subquestions) {
+          current.subquestions.forEach((subquestion) => {
+            completeAnswers[subquestion.id] =
+              answers[subquestion.id] ?? ''
+          })
+        } else {
+          completeAnswers[current.id] = answers[current.id] ?? ''
+        }
       })
-    
-      setScreen('thankyou')
-    } catch (error) {
-      console.error('Submission failed:', error)
-      setIsSubmitting(false)
-      alert('Не вдалося надіслати відповіді. Спробуйте ще раз.')
+
+      const submission = {
+        timestamp: new Date().toISOString(),
+        group: group.trim(),
+        fullName: fullName.trim(),
+        answers: completeAnswers,
+        heardWords,
+      }
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+          body: JSON.stringify(submission),
+        })
+
+        setScreen('thankyou')
+      } catch (error) {
+        console.error('Submission failed:', error)
+        setIsSubmitting(false)
+        alert('Не вдалося надіслати відповіді. Спробуйте ще раз.')
+      }
+
+      return
     }
-    
-    return
-    }
-    
 
     setCurrentIndex((index) => index + 1)
-    setPlayCount(0)
     setIsPlaying(false)
   }
 
@@ -209,12 +208,12 @@ function App() {
 
   const questionCount = currentQuestion.subquestions?.length ?? 1
 
-const questionInstruction =
-  questionCount === 1
-    ? 'Дайте відповідь на одне питання нижче.'
-    : questionCount === 2
-      ? 'Дайте відповідь на два питання нижче.'
-      : `Дайте відповідь на ${questionCount} питання нижче.`
+  const questionInstruction =
+    questionCount === 1
+      ? 'Дайте відповідь на одне питання нижче.'
+      : questionCount === 2
+        ? 'Дайте відповідь на два питання нижче.'
+        : `Дайте відповідь на ${questionCount} питання нижче.`
 
   return (
     <main className="app">
@@ -234,19 +233,22 @@ const questionInstruction =
             ref={audioRef}
             src={`${import.meta.env.BASE_URL}${currentQuestion.audio.replace(/^\/+/, '')}`}
             preload="metadata"
-              onPlay={() => setIsPlaying(true)}
-              onEnded={() => setIsPlaying(false)}
-              onPause={() => setIsPlaying(false)}
-            />
+            onPlay={() => setIsPlaying(true)}
+            onEnded={() => setIsPlaying(false)}
+            onPause={() => setIsPlaying(false)}
+          />
 
           <button
             className="play-button"
             onClick={handlePlay}
-            disabled={playCount >= 2 || isPlaying}
           >
             {isPlaying ? '⏹ Stop' : '▶ Play'}
           </button>
         </div>
+
+        <p className="answer-instruction">
+          {questionInstruction}
+        </p>
 
         {currentQuestion.question && currentQuestion.options && (
           <div className="question-block">
@@ -276,10 +278,6 @@ const questionInstruction =
 
         {currentQuestion.subquestions && (
           <div className="subquestions">
-            <p className="answer-instruction">
-              {questionInstruction}
-            </p>
-
             {currentQuestion.subquestions.map((subquestion) => (
               <div className="question-block" key={subquestion.id}>
                 <h2>{subquestion.question}</h2>
