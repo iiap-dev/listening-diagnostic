@@ -37,6 +37,7 @@ function App() {
 
   const [playCount, setPlayCount] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -97,6 +98,8 @@ function App() {
     if (!canContinue) return
 
     if (currentIndex === questions.length - 1) {
+    setIsSubmitting(true)
+    
     const completeAnswers: Answers = {}
     
     questions.forEach((question) => {
@@ -132,11 +135,13 @@ function App() {
       setScreen('thankyou')
     } catch (error) {
       console.error('Submission failed:', error)
+      setIsSubmitting(false)
       alert('Не вдалося надіслати відповіді. Спробуйте ще раз.')
     }
     
     return
     }
+    
 
     setCurrentIndex((index) => index + 1)
     setPlayCount(0)
@@ -310,7 +315,11 @@ function App() {
           onClick={handleNext}
           disabled={!canContinue}
         >
-          {currentIndex === questions.length - 1 ? 'Submit' : 'Next'}
+           {currentIndex === questions.length - 1
+    ? isSubmitting
+      ? 'Sending...'
+      : 'Submit'
+    : 'Next'}
         </button>
       </section>
     </main>
