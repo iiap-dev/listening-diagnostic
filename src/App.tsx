@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import questions from './data/questions.json'
+import { supabase } from './supabase'
 
 const GOOGLE_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbxdneV7lcEHX7Au8dAkJif42CclSLxATYB71sDi5_Qb843g6r9gGW6nH6ZfkgZrBazH3A/exec'
@@ -25,11 +26,23 @@ type Question = {
 
 type Answers = Record<string, string>
 type HeardWords = Record<string, string>
+type SpeakingRecordingMetadata = {
+  testAttemptId: string
+  taskId: string
+  group: string
+  fullName: string
+  storagePath: string
+  duration: number
+  submittedAt: string
+  uploadStatus: 'success' | 'error'
+}
 
 function App() {
-  const [screen, setScreen] = useState<'start' | 'test' | 'thankyou'>('start')
+  const [screen, setScreen] = useState<'start' | 'test' | 'speaking-test' | 'thankyou'>('start')
   const [group, setGroup] = useState('')
   const [fullName, setFullName] = useState('')
+  const [testAttemptId, setTestAttemptId] = useState('')
+  const [speakingTask, setSpeakingTask] = useState(1)
   const [currentIndex, setCurrentIndex] = useState(0)
 
   const [answers, setAnswers] = useState<Answers>({})
@@ -37,12 +50,58 @@ function App() {
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState('')
+  const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const [authTestMessage, setAuthTestMessage] = useState('')
+
+  const handleAuthTest = async () => {
+    setAuthTestMessage('Testing...')
+
+    const { data, error } = await supabase.auth.signInAnonymously()
+
+    if (error) {
+      setAuthTestMessage(`Error: ${error.message}`)
+      return
+    }
+
+    setAuthTestMessage(
+      data.user ? 'Anonymous authentication works.' : 'No user returned.',
+    )
+  }
+
+  const handleStorageTest = async () => {
+  setAuthTestMessage('Testing Storage...')
+
+  const testBlob = new Blob(['Supabase storage test'], {
+    type: 'audio/webm',
+  })
+
+  const testPath = `speaking/${testAttemptId}/task-1.webm`
+
+  const { error } = await supabase.storage
+    .from('speaking-audio')
+    .upload(testPath, testBlob, {
+      contentType: 'audio/webm',
+    })
+
+  if (error) {
+    setAuthTestMessage(`Storage error: ${error.message}`)
+    return
+  }
+
+  setAuthTestMessage('Supabase Storage upload works.')
+  }
 
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [currentIndex, screen])
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordedChunksRef = useRef<Blob[]>([])
 
   const currentQuestion = questions[currentIndex] as Question
 
@@ -64,11 +123,184 @@ function App() {
 
   const canContinue = hasAllAnswers || hasHeardWords
 
-  const handleStart = () => {
-    if (!group.trim() || !fullName.trim()) return
+    const startRecording = async () => {
+      if (isRecording || mediaRecorderRef.current) return
+    
+      setRecordedAudioUrl('')
+      setRecordedAudioBlob(null)
+      setRecordingDuration(0)
+    
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      })
+    
+      recordedChunksRef.current = []
+    
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm',
+      })
+    
+      mediaRecorderRef.current = mediaRecorder
+    
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data)
+        }
+      }
+    
+      mediaRecorder.start()
+      setIsRecording(true)
+    }
 
-    setScreen('test')
+  const stopRecording = () => {
+      const mediaRecorder = mediaRecorderRef.current
+    
+      if (!mediaRecorder) return
+    
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(recordedChunksRef.current, {
+          type: 'audio/webm',
+        })
+    
+        const audioUrl = URL.createObjectURL(audioBlob)
+        setRecordedAudioUrl(audioUrl)
+        setRecordedAudioBlob(audioBlob)
+
+        const audio = new Audio(audioUrl)
+
+        audio.addEventListener('loadedmetadata', () => {
+          console.log('Recording duration:', audio.duration)
+          setRecordingDuration(audio.duration)
+        })
+    
+        mediaRecorder.stream.getTracks().forEach((track) => track.stop())
+        mediaRecorderRef.current = null
+      }
+    
+      mediaRecorder.stop()
+      setIsRecording(false)
   }
+
+  const SPEAKING_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzeMFszcqWuyo8qmjyQaJ8ETLQCPjUAUhAtZtD1XVvZE8SAmYsYQs_Q4gSoCd636W2iNA/exec'
+
+    const uploadTaskRecording = async (
+      taskId: string,
+      audioBlob: Blob,
+    ) => {
+      if (!testAttemptId) {
+        setAuthTestMessage('No test attempt ID.')
+        return false
+      }
+    
+      setAuthTestMessage('Uploading recording...')
+    
+      const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
+      console.log('Uploading speaking recording:', filePath)
+    
+      const { error } = await supabase.storage
+        .from('speaking-audio')
+        .upload(filePath, audioBlob, {
+          contentType: 'audio/webm',
+        })
+    
+      if (error) {
+        setAuthTestMessage(`Upload error: ${error.message}`)
+        return false
+      }
+
+      const metadata: SpeakingRecordingMetadata = {
+          testAttemptId,
+          taskId,
+          group,
+          fullName,
+          storagePath: filePath,
+          duration: recordingDuration,
+          submittedAt: new Date().toISOString(),
+          uploadStatus: 'success',
+        }
+        
+        const { error: metadataError } = await supabase
+          .from('speaking_recordings')
+          .insert({
+            test_attempt_id: metadata.testAttemptId,
+            task_id: metadata.taskId,
+            group: metadata.group,
+            full_name: metadata.fullName,
+            storage_path: metadata.storagePath,
+            duration: metadata.duration,
+            submitted_at: metadata.submittedAt,
+            upload_status: metadata.uploadStatus,
+          })
+        
+        if (metadataError) {
+          console.error('Metadata insert error:', metadataError)
+          setAuthTestMessage(`Metadata error: ${metadataError.message}`)
+          return false
+        }
+        
+        try {
+          await fetch(SPEAKING_SHEETS_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'text/plain;charset=utf-8',
+            },
+            body: JSON.stringify(metadata),
+          })
+        
+          console.log('Speaking metadata sent to Google Sheets:', metadata)
+        } catch (error) {
+          console.error('Google Sheets error:', error)
+        }
+        
+        setAuthTestMessage('Recording uploaded successfully.')
+        
+        if (taskId === '1') {
+          setRecordedAudioUrl('')
+          setRecordedAudioBlob(null)
+          setAuthTestMessage('')
+          setSpeakingTask(2)
+        }
+        
+        if (taskId === '2') {
+          setRecordedAudioUrl('')
+          setRecordedAudioBlob(null)
+          setAuthTestMessage('')
+          setSpeakingTask(3)
+        }
+
+        if (taskId === '3') {
+          setRecordedAudioUrl('')
+          setRecordedAudioBlob(null)
+          setAuthTestMessage('')
+          setScreen('thankyou')
+        }
+        
+        return true
+    }
+
+    const handleStart = () => {
+      if (!group.trim() || !fullName.trim()) return
+    
+      const attemptId = crypto.randomUUID()
+    
+      setTestAttemptId(attemptId)
+      setScreen('test')
+    }
+
+    const handleSpeakingTestStart = () => {
+      if (!group.trim() || !fullName.trim()) return
+    
+      const attemptId = crypto.randomUUID()
+
+      console.log('Speaking test attempt ID:', attemptId)
+    
+      setTestAttemptId(attemptId)
+      setScreen('speaking-test')
+    }
 
   const handlePlay = () => {
     if (!audioRef.current) return
@@ -181,16 +413,184 @@ function App() {
           </label>
 
           <button
+              type="button"
+              onClick={handleAuthTest}
+            >
+              Test Supabase Auth
+            </button>
+
+            <button
+              type="button"
+              onClick={handleStorageTest}
+            >
+              Test Supabase Storage
+            </button>
+
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+            >
+              {isRecording ? 'Stop recording' : 'Start recording'}
+            </button>
+            
+            {recordedAudioUrl && (
+              <audio
+                controls
+                src={recordedAudioUrl}
+              />
+            )}
+            
+            {authTestMessage && (
+              <p>{authTestMessage}</p>
+            )}
+
+          <button
             className="primary-button"
             onClick={handleStart}
             disabled={!group.trim() || !fullName.trim()}
           >
             Start
           </button>
+
+          <button
+            type="button"
+            onClick={handleSpeakingTestStart}
+            disabled={!group.trim() || !fullName.trim()}
+          >
+          Start Speaking Test
+        </button>
         </section>
       </main>
     )
   }
+
+    if (screen === 'speaking-test') {
+      return (
+        <main className="app">
+          <section className="card">
+            <h1>
+              {speakingTask === 1
+                ? 'Task 1. A good day'
+                : speakingTask === 2
+                  ? 'Task 2. A good day / A bad day'
+                  : 'Task 3. Change the day'}
+            </h1>
+    
+            <p>
+              {speakingTask === 1
+                ? 'Розкажіть про день, який би ви вважали хорошим.'
+                : speakingTask === 2
+                  ? 'Подивіться на картинку. Розкажіть про те, що ви бачите.'
+                  : 'Уявіть, що у вас поганий день. Ви можете змінити лише щось одне, щоб день став кращим.'}
+            </p>
+
+            {speakingTask === 2 && (
+              <img
+                src="/listening-diagnostic/images/task-2.png"
+                alt="A pigeon carrying a bag of chips outside a shop"
+                className="speaking-task-image"
+              />
+            )}
+    
+            {speakingTask === 1 ? (
+              <>
+                <p>Розкажіть:</p>
+                <ul>
+                  <li>Where are you?</li>
+                  <li>What do you do?</li>
+                  <li>Who are you with?</li>
+                  <li>Why is it a good day?</li>
+                </ul>
+              </>
+            ) : speakingTask === 2 ? (
+              <>
+                <p>Розкажіть:</p>
+                <ul>
+                  <li>What can you see?</li>
+                  <li>What is happening?</li>
+                  <li>Is it a good or bad day? Why?</li>
+                </ul>
+              </>
+            ) : (
+              <>
+                <p>Скажіть:</p>
+                <ul>
+                  <li>What would you change?</li>
+                  <li>Why?</li>
+                  <li>What would happen after that?</li>
+                </ul>
+              </>
+            )}
+    
+            <h2>Useful phrases</h2>
+            
+            {speakingTask === 1 ? (
+              <ul>
+                <li>It is a good day because …</li>
+                <li>I am …</li>
+                <li>I usually …</li>
+                <li>I am with …</li>
+                <li>I feel …</li>
+              </ul>
+            ) : speakingTask === 2 ? (
+              <ul>
+                <li>I can see...</li>
+              </ul>
+            ) : (
+              <ul>
+                <li>I would change...</li>
+                <li>It would be better because...</li>
+                <li>After that, I would...</li>
+              </ul>
+            )}
+    
+            <h2>Help</h2>
+    
+            <p>
+              Спробуйте відповісти англійською.
+              <br />
+              Якщо ви не знаєте, як сказати щось англійською,
+              скажіть українською, що саме ви хотіли б сказати.
+            </p>
+    
+            <button
+              type="button"
+              onClick={isRecording ? stopRecording : startRecording}
+            >
+              {isRecording ? 'Stop recording' : 'Start recording'}
+            </button>
+    
+            {recordedAudioUrl && (
+              <>
+                <audio
+                  controls
+                  src={recordedAudioUrl}
+                />
+            
+                <button
+                  type="button"
+                  onClick={startRecording}
+                >
+                  Перезаписати
+                </button>
+            
+                <button
+                  type="button"
+                  onClick={() => uploadTaskRecording(speakingTask.toString(), recordedAudioBlob!)}
+                  disabled={!recordedAudioBlob}
+                >
+                  Відправити
+                </button>
+              </>
+            )}
+    
+            {authTestMessage && (
+              <p>{authTestMessage}</p>
+            )}
+          </section>
+        </main>
+      )
+    }
 
   if (screen === 'thankyou') {
     return (

@@ -249,3 +249,12 @@ input[type='text']:focus {
   outline: 2px solid #86efac;
   border-color: #22c55e;
 }
+
+.speaking-task-image {
+  display: block;
+  width: 100%;
+  max-width: 700px;
+  height: auto;
+  margin: 20px auto;
+  border-radius: 12px;
+}
