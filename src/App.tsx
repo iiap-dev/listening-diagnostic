@@ -48,6 +48,7 @@ function App() {
 
   const [answers, setAnswers] = useState<Answers>({})
   const [heardWords, setHeardWords] = useState<HeardWords>({})
+  const [validationMessage, setValidationMessage] = useState('')
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -58,9 +59,11 @@ function App() {
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [uploadMessage, setUploadMessage] = useState('')
 
-  useEffect(() => {
-    window.scrollTo(0, 0)
-  }, [currentIndex, screen])
+
+    useEffect(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }, [screen, currentIndex])
+
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
@@ -303,7 +306,23 @@ const uploadTaskRecording = async (
 
   const handleNext = async () => {
     if (isSubmitting) return
-    if (!canContinue) return
+    
+    if (!canContinue) {
+
+        if (questionCount === 3) {
+          setValidationMessage(
+            'Не можете відповісти на всі питання? Напишіть додатково у поле внизу сторінки слова, які ви почули в аудіо.',
+          )
+        } else {
+          setValidationMessage(
+            'Будь ласка, дайте відповідь на питання або запишіть почуті слова.',
+          )
+        }
+
+      return
+    }
+    
+    setValidationMessage('')
 
     if (currentIndex === questions.length - 1) {
       setIsSubmitting(true)
@@ -512,7 +531,7 @@ const uploadTaskRecording = async (
               {!recordedAudioUrl && (
               <>
                   <button
-                    className="record-button"
+                    className={`record-button ${isRecording ? 'record-button-stop' : ''}`}
                     type="button"
                     onClick={isRecording ? stopRecording : startRecording}
                   >
@@ -576,9 +595,9 @@ const uploadTaskRecording = async (
 
   const questionInstruction =
     questionCount === 1
-      ? 'Дайте відповідь на одне питання нижче.'
+      ? 'Дайте відповідь на 1 питання нижче.'
       : questionCount === 2
-        ? 'Дайте відповідь на два питання нижче.'
+        ? 'Дайте відповідь на 2 питання нижче.'
         : `Дайте відповідь на ${questionCount} питання нижче.`
 
   return (
@@ -612,7 +631,7 @@ const uploadTaskRecording = async (
           </button>
         </div>
 
-        <p className="answer-instruction">
+        <p className="answer-instruction recording-notice">
           {questionInstruction}
         </p>
 
@@ -684,11 +703,16 @@ const uploadTaskRecording = async (
           />
         </div>
 
+
         <div className="next-button-container">
+            {validationMessage && (
+              <p className="validation-message" role="alert">
+                {validationMessage}
+              </p>
+            )}
           <button
             className="primary-button next-button"
             onClick={handleNext}
-            disabled={!canContinue}
           >
             {currentIndex === questions.length - 1
               ? isSubmitting
