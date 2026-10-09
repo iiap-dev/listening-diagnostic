@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import questions from './data/questions.json'
-import { supabase } from './supabase'
+import { supabase, ensureSupabaseSession } from './supabase'
 
 const GOOGLE_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbxdneV7lcEHX7Au8dAkJif42CclSLxATYB71sDi5_Qb843g6r9gGW6nH6ZfkgZrBazH3A/exec'
@@ -44,6 +44,7 @@ function App() {
   const [testAttemptId, setTestAttemptId] = useState('')
   const [speakingTask, setSpeakingTask] = useState(1)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const uploadInProgressRef = useRef(false)
 
   const [answers, setAnswers] = useState<Answers>({})
   const [heardWords, setHeardWords] = useState<HeardWords>({})
@@ -149,99 +150,109 @@ function App() {
 
   const SPEAKING_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzeMFszcqWuyo8qmjyQaJ8ETLQCPjUAUhAtZtD1XVvZE8SAmYsYQs_Q4gSoCd636W2iNA/exec'
 
-    const uploadTaskRecording = async (
-      taskId: string,
-      audioBlob: Blob,
-    ) => {
-    if (!testAttemptId || isUploadingRecording) {
+    
+
+const uploadTaskRecording = async (
+  taskId: string,
+  audioBlob: Blob,
+) => {
+  if (!testAttemptId || uploadInProgressRef.current) {
+  return false
+    }
+    
+    uploadInProgressRef.current = true
+    setIsUploadingRecording(true)
+    setUploadMessage('')
+
+  try {
+    await ensureSupabaseSession()
+
+    const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
+
+    const { error } = await supabase.storage
+      .from('speaking-audio')
+      .upload(filePath, audioBlob, {
+        contentType: 'audio/webm',
+      })
+
+    if (error) {
+      setUploadMessage('Не вдалося надіслати запис. Спробуйте ще раз.')
       return false
     }
-    
-    setIsUploadingRecording(true)
-    
-      const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
-    
-      const { error } = await supabase.storage
-        .from('speaking-audio')
-        .upload(filePath, audioBlob, {
-          contentType: 'audio/webm',
-        })
-    
-        if (error) {
-          setIsUploadingRecording(false)
-          setUploadMessage('Не вдалося надіслати запис. Спробуйте ще раз.')
-          return false
-        }
 
-      const metadata: SpeakingRecordingMetadata = {
-          testAttemptId,
-          taskId,
-          group,
-          fullName,
-          storagePath: filePath,
-          duration: recordingDuration,
-          submittedAt: new Date().toISOString(),
-          uploadStatus: 'success',
-        }
-        
-        const { error: metadataError } = await supabase
-          .from('speaking_recordings')
-          .insert({
-            test_attempt_id: metadata.testAttemptId,
-            task_id: metadata.taskId,
-            group: metadata.group,
-            full_name: metadata.fullName,
-            storage_path: metadata.storagePath,
-            duration: metadata.duration,
-            submitted_at: metadata.submittedAt,
-            upload_status: metadata.uploadStatus,
-          })
-        
-        if (metadataError) {
-          console.error('Metadata insert error:', metadataError)
-          setUploadMessage(`Metadata error: ${metadataError.message}`)
-          setIsUploadingRecording(false)
-          return false
-        }
-        
-        try {
-          await fetch(SPEAKING_SHEETS_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'text/plain;charset=utf-8',
-            },
-            body: JSON.stringify(metadata),
-          })
-        } catch (error) {
-          console.error('Google Sheets error:', error)
-        }
-        
-        setIsUploadingRecording(false)
-        setUploadMessage('')
-        
-        if (taskId === '1') {
-          setRecordedAudioUrl('')
-          setRecordedAudioBlob(null)
-          setUploadMessage('')
-          setSpeakingTask(2)
-        }
-        
-        if (taskId === '2') {
-          setRecordedAudioUrl('')
-          setRecordedAudioBlob(null)
-          setUploadMessage('')
-          setSpeakingTask(3)
-        }
-
-        if (taskId === '3') {
-          setRecordedAudioUrl('')
-          setRecordedAudioBlob(null)
-          setUploadMessage('')
-          setScreen('thankyou')
-        }
-        
-        return true
+    const metadata: SpeakingRecordingMetadata = {
+      testAttemptId,
+      taskId,
+      group,
+      fullName,
+      storagePath: filePath,
+      duration: recordingDuration,
+      submittedAt: new Date().toISOString(),
+      uploadStatus: 'success',
     }
+
+    const { error: metadataError } = await supabase
+      .from('speaking_recordings')
+      .insert({
+        test_attempt_id: metadata.testAttemptId,
+        task_id: metadata.taskId,
+        group: metadata.group,
+        full_name: metadata.fullName,
+        storage_path: metadata.storagePath,
+        duration: metadata.duration,
+        submitted_at: metadata.submittedAt,
+        upload_status: metadata.uploadStatus,
+      })
+
+    if (metadataError) {
+      console.error('Metadata insert error:', metadataError)
+      setUploadMessage('Запис завантажено, але не вдалося зберегти дані. Зверніться до викладача.')
+      return false
+    }
+
+    try {
+      await fetch(SPEAKING_SHEETS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify(metadata),
+      })
+    } catch (error) {
+      console.error('Google Sheets error:', error)
+    }
+
+    setUploadMessage('')
+
+    if (taskId === '1') {
+      setRecordedAudioUrl('')
+      setRecordedAudioBlob(null)
+      setSpeakingTask(2)
+    }
+
+    if (taskId === '2') {
+      setRecordedAudioUrl('')
+      setRecordedAudioBlob(null)
+      setSpeakingTask(3)
+    }
+
+    if (taskId === '3') {
+      setRecordedAudioUrl('')
+      setRecordedAudioBlob(null)
+      setScreen('thankyou')
+    }
+
+    return true
+  } catch (error) {
+    console.error('Speaking upload failed:', error)
+    setUploadMessage('Не вдалося надіслати запис. Спробуйте ще раз.')
+    return false
+  } finally {
+      uploadInProgressRef.current = false
+      setIsUploadingRecording(false)
+  }
+}
+
 
     const handleStart = () => {
       if (!group.trim() || !fullName.trim()) return
