@@ -51,48 +51,11 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [isUploadingRecording, setIsUploadingRecording] = useState(false)
   const [recordedAudioUrl, setRecordedAudioUrl] = useState('')
   const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null)
   const [recordingDuration, setRecordingDuration] = useState(0)
-  const [authTestMessage, setAuthTestMessage] = useState('')
-
-  const handleAuthTest = async () => {
-    setAuthTestMessage('Testing...')
-
-    const { data, error } = await supabase.auth.signInAnonymously()
-
-    if (error) {
-      setAuthTestMessage(`Error: ${error.message}`)
-      return
-    }
-
-    setAuthTestMessage(
-      data.user ? 'Anonymous authentication works.' : 'No user returned.',
-    )
-  }
-
-  const handleStorageTest = async () => {
-  setAuthTestMessage('Testing Storage...')
-
-  const testBlob = new Blob(['Supabase storage test'], {
-    type: 'audio/webm',
-  })
-
-  const testPath = `speaking/${testAttemptId}/task-1.webm`
-
-  const { error } = await supabase.storage
-    .from('speaking-audio')
-    .upload(testPath, testBlob, {
-      contentType: 'audio/webm',
-    })
-
-  if (error) {
-    setAuthTestMessage(`Storage error: ${error.message}`)
-    return
-  }
-
-  setAuthTestMessage('Supabase Storage upload works.')
-  }
+  const [uploadMessage, setUploadMessage] = useState('')
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -173,7 +136,6 @@ function App() {
         const audio = new Audio(audioUrl)
 
         audio.addEventListener('loadedmetadata', () => {
-          console.log('Recording duration:', audio.duration)
           setRecordingDuration(audio.duration)
         })
     
@@ -191,15 +153,13 @@ function App() {
       taskId: string,
       audioBlob: Blob,
     ) => {
-      if (!testAttemptId) {
-        setAuthTestMessage('No test attempt ID.')
-        return false
-      }
+    if (!testAttemptId || isUploadingRecording) {
+      return false
+    }
     
-      setAuthTestMessage('Uploading recording...')
+    setIsUploadingRecording(true)
     
       const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
-      console.log('Uploading speaking recording:', filePath)
     
       const { error } = await supabase.storage
         .from('speaking-audio')
@@ -207,10 +167,11 @@ function App() {
           contentType: 'audio/webm',
         })
     
-      if (error) {
-        setAuthTestMessage(`Upload error: ${error.message}`)
-        return false
-      }
+        if (error) {
+          setIsUploadingRecording(false)
+          setUploadMessage('Не вдалося надіслати запис. Спробуйте ще раз.')
+          return false
+        }
 
       const metadata: SpeakingRecordingMetadata = {
           testAttemptId,
@@ -238,7 +199,8 @@ function App() {
         
         if (metadataError) {
           console.error('Metadata insert error:', metadataError)
-          setAuthTestMessage(`Metadata error: ${metadataError.message}`)
+          setUploadMessage(`Metadata error: ${metadataError.message}`)
+          setIsUploadingRecording(false)
           return false
         }
         
@@ -250,32 +212,31 @@ function App() {
             },
             body: JSON.stringify(metadata),
           })
-        
-          console.log('Speaking metadata sent to Google Sheets:', metadata)
         } catch (error) {
           console.error('Google Sheets error:', error)
         }
         
-        setAuthTestMessage('Recording uploaded successfully.')
+        setIsUploadingRecording(false)
+        setUploadMessage('')
         
         if (taskId === '1') {
           setRecordedAudioUrl('')
           setRecordedAudioBlob(null)
-          setAuthTestMessage('')
+          setUploadMessage('')
           setSpeakingTask(2)
         }
         
         if (taskId === '2') {
           setRecordedAudioUrl('')
           setRecordedAudioBlob(null)
-          setAuthTestMessage('')
+          setUploadMessage('')
           setSpeakingTask(3)
         }
 
         if (taskId === '3') {
           setRecordedAudioUrl('')
           setRecordedAudioBlob(null)
-          setAuthTestMessage('')
+          setUploadMessage('')
           setScreen('thankyou')
         }
         
@@ -295,8 +256,6 @@ function App() {
       if (!group.trim() || !fullName.trim()) return
     
       const attemptId = crypto.randomUUID()
-
-      console.log('Speaking test attempt ID:', attemptId)
     
       setTestAttemptId(attemptId)
       setScreen('speaking-test')
@@ -411,37 +370,9 @@ function App() {
               placeholder="Enter your full name"
             />
           </label>
-
-          <button
-              type="button"
-              onClick={handleAuthTest}
-            >
-              Test Supabase Auth
-            </button>
-
-            <button
-              type="button"
-              onClick={handleStorageTest}
-            >
-              Test Supabase Storage
-            </button>
-
-            <button
-              type="button"
-              onClick={isRecording ? stopRecording : startRecording}
-            >
-              {isRecording ? 'Stop recording' : 'Start recording'}
-            </button>
             
-            {recordedAudioUrl && (
-              <audio
-                controls
-                src={recordedAudioUrl}
-              />
-            )}
-            
-            {authTestMessage && (
-              <p>{authTestMessage}</p>
+            {uploadMessage && (
+              <p>{uploadMessage}</p>
             )}
 
           <button
@@ -452,13 +383,14 @@ function App() {
             Start
           </button>
 
-          <button
-            type="button"
-            onClick={handleSpeakingTestStart}
-            disabled={!group.trim() || !fullName.trim()}
-          >
-          Start Speaking Test
-        </button>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={handleSpeakingTestStart}
+              disabled={!group.trim() || !fullName.trim()}
+            >
+              Start Speaking Test
+            </button>
         </section>
       </main>
     )
@@ -553,39 +485,48 @@ function App() {
               скажіть українською, що саме ви хотіли б сказати.
             </p>
     
-            <button
-              type="button"
-              onClick={isRecording ? stopRecording : startRecording}
-            >
-              {isRecording ? 'Stop recording' : 'Start recording'}
-            </button>
-    
-            {recordedAudioUrl && (
-              <>
-                <audio
-                  controls
-                  src={recordedAudioUrl}
-                />
-            
+            <div className="speaking-controls">
+              {!recordedAudioUrl && (
+                  <button
+                    className="record-button"
+                    type="button"
+                    onClick={isRecording ? stopRecording : startRecording}
+                  >
+                    {isRecording ? 'Stop recording' : 'Start recording'}
+                  </button>
+                )}
+
+              {recordedAudioUrl && (
+                <>
+                  <audio controls src={recordedAudioUrl} />
+
+                  <button
+                    className="rerecord-button"
+                    type="button"
+                    onClick={startRecording}
+                  >
+                    Перезаписати
+                  </button>
+
                 <button
+                  className="upload-button"
                   type="button"
-                  onClick={startRecording}
+                  onClick={() =>
+                    uploadTaskRecording(
+                      speakingTask.toString(),
+                      recordedAudioBlob!,
+                    )
+                  }
+                  disabled={!recordedAudioBlob || isUploadingRecording}
                 >
-                  Перезаписати
+                  {isUploadingRecording ? 'Надсилання...' : 'Відправити'}
                 </button>
-            
-                <button
-                  type="button"
-                  onClick={() => uploadTaskRecording(speakingTask.toString(), recordedAudioBlob!)}
-                  disabled={!recordedAudioBlob}
-                >
-                  Відправити
-                </button>
-              </>
-            )}
-    
-            {authTestMessage && (
-              <p>{authTestMessage}</p>
+                </>
+              )}
+            </div>
+
+            {uploadMessage && (
+              <p className="upload-message">{uploadMessage}</p>
             )}
           </section>
         </main>

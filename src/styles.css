@@ -5,7 +5,7 @@
 :root {
   font-family: Arial, sans-serif;
   color: #1f2937;
-  background: #f4f6f8;
+  background: #f1f5f9;
 }
 
 body {
@@ -14,13 +14,14 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
 .app {
   min-height: 100vh;
-  padding: 24px 16px;
+  padding: 32px 16px;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -28,48 +29,62 @@ input {
 
 .card {
   width: 100%;
-  max-width: 640px;
-  background: white;
-  border-radius: 16px;
-  padding: 28px 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  max-width: 680px;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 32px 28px;
+  box-shadow: 0 6px 24px rgba(15, 23, 42, 0.08);
 }
 
 h1 {
-  margin-top: 0;
-  margin-bottom: 24px;
+  margin: 0 0 20px;
   font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 h2 {
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1.4;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
+  font-weight: 700;
+  color: #1e293b;
 }
 
 .intro {
-  margin-bottom: 24px;
-  line-height: 1.5;
+  margin: 0 0 28px;
+  color: #475569;
+  line-height: 1.6;
+  font-size: 16px;
 }
 
 label {
   display: block;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   font-weight: 600;
+  color: #334155;
+  font-size: 15px;
 }
 
 input[type='text'] {
   width: 100%;
   margin-top: 8px;
-  padding: 13px 14px;
+  padding: 14px 15px;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f2937;
   font-size: 16px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 input[type='text']:focus {
-  outline: 2px solid #86efac;
+  outline: none;
   border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
 }
 
 .primary-button,
@@ -82,20 +97,23 @@ input[type='text']:focus {
 
 .primary-button {
   width: 100%;
-  padding: 14px 20px;
+  padding: 15px 20px;
+  border-radius: 10px;
   background: #22c55e;
-  color: white;
+  color: #ffffff;
   font-size: 17px;
+  font-weight: 600;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
 }
 
 .primary-button:hover:not(:disabled) {
   background: #16a34a;
 }
 
-.primary-button:disabled,
-.play-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.primary-button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .progress {
@@ -106,17 +124,29 @@ input[type='text']:focus {
 
 .audio-section {
   margin: 24px 0 28px;
-  padding: 18px;
+  padding: 24px 20px;
   background: #f8fafc;
-  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
   text-align: center;
 }
 
 .play-button {
   padding: 13px 24px;
   background: #334155;
-  color: white;
+  color: #ffffff;
   font-size: 16px;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.play-button:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.play-button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .play-counter {
@@ -140,30 +170,46 @@ input[type='text']:focus {
   align-items: center;
   gap: 12px;
   margin: 0;
-  padding: 14px;
+  padding: 16px;
   border: 1px solid #dbe2ea;
-  border-radius: 10px;
+  border-radius: 12px;
+  background: #ffffff;
   cursor: pointer;
   font-weight: 400;
+  line-height: 1.5;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .option:hover {
   background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.option:focus-within {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.12);
 }
 
 .option input[type='radio'] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   margin: 0;
   flex-shrink: 0;
+  accent-color: #16a34a;
+  cursor: pointer;
 }
 
 .subquestions .question-block {
-  padding-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
   border-bottom: 1px solid #e2e8f0;
 }
 
 .subquestions .question-block:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
   border-bottom: none;
 }
 
@@ -197,14 +243,17 @@ input[type='text']:focus {
     border-radius: 12px;
   }
 
-  h1 {
-    font-size: 24px;
-  }
+    h1 {
+      font-size: 24px;
+      line-height: 1.25;
+    }
+    
+    h2 {
+      font-size: 18px;
+    }    
+}
 
-  h2 {
-    font-size: 18px;
-  }
-}.instruction {
+.instruction {
   margin: -8px 0 20px;
   color: #475569;
   line-height: 1.5;
@@ -235,26 +284,130 @@ input[type='text']:focus {
 }
 
 .heard-section textarea {
+  display: block;
   width: 100%;
   resize: vertical;
-  min-height: 80px;
-  padding: 12px 14px;
+  min-height: 96px;
+  margin-top: 8px;
+  padding: 14px;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1f2937;
   font: inherit;
   font-size: 16px;
+  line-height: 1.5;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .heard-section textarea:focus {
-  outline: 2px solid #86efac;
+  outline: none;
   border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
 }
+
+
+/* Speaking task */
 
 .speaking-task-image {
   display: block;
   width: 100%;
   max-width: 700px;
   height: auto;
-  margin: 20px auto;
-  border-radius: 12px;
+  margin: 24px auto;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+}
+
+.card p {
+  line-height: 1.6;
+}
+
+.card ul {
+  padding-left: 24px;
+  line-height: 1.7;
+}
+
+.card li {
+  padding-left: 4px;
+  margin-bottom: 6px;
+}
+
+/* Speaking recording controls */
+
+.speaking-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.speaking-controls button {
+  width: 100%;
+  min-height: 48px;
+  padding: 13px 18px;
+  border: none;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
+}
+
+.speaking-controls button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.speaking-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.record-button {
+  background: #334155;
+  color: #ffffff;
+}
+
+.record-button:hover:not(:disabled) {
+  background: #1e293b;
+}
+
+.rerecord-button {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.rerecord-button:hover:not(:disabled) {
+  background: #e2e8f0;
+}
+
+.upload-button {
+  background: #22c55e;
+  color: #ffffff;
+}
+
+.upload-button:hover:not(:disabled) {
+  background: #16a34a;
+}
+
+.speaking-controls audio {
+  display: block;
+  width: 100%;
+  margin: 4px 0;
+}
+
+.upload-message {
+  margin-top: 16px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.primary-button + .primary-button {
+  margin-top: 12px;
 }
