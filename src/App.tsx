@@ -309,7 +309,7 @@ const uploadTaskRecording = async (
     
     if (!canContinue) {
 
-        if (questionCount === 3) {
+        if (questionCount !== 1) {
           setValidationMessage(
             'Не можете відповісти на всі питання? Напишіть додатково у поле внизу сторінки слова, які ви почули в аудіо.',
           )
@@ -390,7 +390,7 @@ const uploadTaskRecording = async (
               type="text"
               value={group}
               onChange={(event) => setGroup(event.target.value)}
-              placeholder="Enter your group"
+              placeholder="Напишіть номер групи"
             />
           </label>
 
@@ -400,7 +400,7 @@ const uploadTaskRecording = async (
               type="text"
               value={fullName}
               onChange={(event) => setFullName(event.target.value)}
-              placeholder="Enter your full name"
+              placeholder="Напишіть прізвище та ім'я"
             />
           </label>
             

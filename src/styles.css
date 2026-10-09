@@ -438,7 +438,7 @@ input[type='text']:focus {
 }
 
 .validation-message {
-  margin: 12px 0;
+  margin: 6px 0;
   padding: 12px 16px;
   border-left: 4px solid #b91c1c;
   border-radius: 6px;

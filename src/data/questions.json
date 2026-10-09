@@ -132,7 +132,7 @@
     "subquestions": [
       {
         "id": "Q10.1",
-        "question": "What animals did Todd have?",
+        "question": "What animals are mentioned?",
         "options": [
           { "id": "A", "text": "Pigs, chickens and cows" },
           { "id": "B", "text": "Dogs, horses and sheep" },
@@ -141,7 +141,7 @@
       },
       {
         "id": "Q10.2",
-        "question": "What was Todd's favourite animal?",
+        "question": "What favourite animal is mentioned?",
         "options": [
           { "id": "A", "text": "Dogs" },
           { "id": "B", "text": "Pigs" },
