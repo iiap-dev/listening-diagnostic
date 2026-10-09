@@ -411,3 +411,17 @@ input[type='text']:focus {
 .primary-button + .primary-button {
   margin-top: 12px;
 }
+
+
+.recording-notice {
+  margin: 16px 0;
+  padding: 12px 16px;
+  border-left: 4px solid #d97706;
+  border-radius: 6px;
+  background-color: #fff7ed;
+  color: #9a3412;
+  font-size: 0.95rem;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+}

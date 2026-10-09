@@ -253,6 +253,9 @@ const uploadTaskRecording = async (
   }
 }
 
+    
+    const testMode = new URLSearchParams(window.location.search).get('test')
+
 
     const handleStart = () => {
       if (!group.trim() || !fullName.trim()) return
@@ -356,7 +359,7 @@ const uploadTaskRecording = async (
     return (
       <main className="app">
         <section className="card start-card">
-          <h1>English Listening Diagnostic</h1>
+          <h1>English Challenge</h1>
 
           <p className="intro">
             Введіть вашу групу та ім'я, щоб почати тест.
@@ -386,22 +389,28 @@ const uploadTaskRecording = async (
               <p>{uploadMessage}</p>
             )}
 
-          <button
-            className="primary-button"
-            onClick={handleStart}
-            disabled={!group.trim() || !fullName.trim()}
-          >
-            Start
-          </button>
 
-            <button
-              className="primary-button"
-              type="button"
-              onClick={handleSpeakingTestStart}
-              disabled={!group.trim() || !fullName.trim()}
-            >
-              Start Speaking Test
-            </button>
+            {testMode !== 'speaking' && (
+              <button
+                className="primary-button"
+                onClick={handleStart}
+                disabled={!group.trim() || !fullName.trim()}
+              >
+                Start Listening Test
+              </button>
+            )}
+            
+            {testMode !== 'listening' && (
+              <button
+                className="primary-button"
+                type="button"
+                onClick={handleSpeakingTestStart}
+                disabled={!group.trim() || !fullName.trim()}
+              >
+                Start Speaking Test
+              </button>
+            )}
+
         </section>
       </main>
     )
@@ -497,7 +506,11 @@ const uploadTaskRecording = async (
             </p>
     
             <div className="speaking-controls">
+              <p className="recording-notice">
+                    Ваша відповідь не повинна займати більше 1 хвилини.
+              </p>
               {!recordedAudioUrl && (
+              <>
                   <button
                     className="record-button"
                     type="button"
@@ -505,6 +518,7 @@ const uploadTaskRecording = async (
                   >
                     {isRecording ? 'Stop recording' : 'Start recording'}
                   </button>
+                </>
                 )}
 
               {recordedAudioUrl && (
