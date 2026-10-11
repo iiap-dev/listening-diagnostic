@@ -48,7 +48,7 @@ function App() {
 
   const [answers, setAnswers] = useState<Answers>({})
   const [heardWords, setHeardWords] = useState<HeardWords>({})
-  const [validationMessage, setValidationMessage] = useState('')
+  // const [validationMessage, setValidationMessage] = useState('')
 
   const [isPlaying, setIsPlaying] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -72,23 +72,21 @@ function App() {
 
   const currentQuestion = questions[currentIndex] as Question
 
-  const getRequiredAnswerIds = (question: Question): string[] => {
-    if (question.subquestions) {
-      return question.subquestions.map((subquestion) => subquestion.id)
-    }
+  // const getRequiredAnswerIds = (question: Question): string[] => {
+  //   if (question.subquestions) {
+  //     return question.subquestions.map((subquestion) => subquestion.id)
+  //   }
 
-    return [question.id]
-  }
+  //   return [question.id]
+  // }
 
-  const hasHeardWords = Boolean(
-    heardWords[currentQuestion.id]?.trim(),
-  )
+  // const hasHeardWords = Boolean(
+  //   heardWords[currentQuestion.id]?.trim(),
+  // )
 
-  const hasAllAnswers = getRequiredAnswerIds(currentQuestion).every(
-    (id) => answers[id],
-  )
-
-  const canContinue = hasAllAnswers || hasHeardWords
+  // const hasAllAnswers = getRequiredAnswerIds(currentQuestion).every(
+  //   (id) => answers[id],
+  // )
 
     const startRecording = async () => {
       if (isRecording || mediaRecorderRef.current) return
@@ -306,23 +304,8 @@ const uploadTaskRecording = async (
 
   const handleNext = async () => {
     if (isSubmitting) return
-    
-    if (!canContinue) {
-
-        if (questionCount !== 1) {
-          setValidationMessage(
-            'Не можете відповісти на всі питання? Напишіть додатково у поле внизу сторінки слова, які ви почули в аудіо.',
-          )
-        } else {
-          setValidationMessage(
-            'Будь ласка, дайте відповідь на питання або запишіть почуті слова.',
-          )
-        }
-
-      return
-    }
-    
-    setValidationMessage('')
+        
+    // setValidationMessage('')
 
     if (currentIndex === questions.length - 1) {
       setIsSubmitting(true)
@@ -632,7 +615,7 @@ const uploadTaskRecording = async (
         </div>
 
         <p className="answer-instruction recording-notice">
-          {questionInstruction}
+          {questionInstruction}  Якщо знаєте, що будете вгадувати, напишіть внизу сторінки «пропускаю» або те, що ви почули.
         </p>
 
         {currentQuestion.question && currentQuestion.options && (
@@ -692,7 +675,7 @@ const uploadTaskRecording = async (
 
           <p>
             Не впевнені у відповіді? Напишіть слова або фрази, які ви почули.
-            Навіть якщо ви не знаєте їхнього значення.
+            Або "пропускаю", якщо не вдалося зрозуміти слів.
           </p>
 
           <textarea
@@ -705,11 +688,6 @@ const uploadTaskRecording = async (
 
 
         <div className="next-button-container">
-            {validationMessage && (
-              <p className="validation-message" role="alert">
-                {validationMessage}
-              </p>
-            )}
           <button
             className="primary-button next-button"
             onClick={handleNext}
