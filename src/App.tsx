@@ -56,8 +56,14 @@ function App() {
   const [isUploadingRecording, setIsUploadingRecording] = useState(false)
   const [recordedAudioUrl, setRecordedAudioUrl] = useState('')
   const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null)
-  const [recordingDuration, setRecordingDuration] = useState(0)
+  const [, setRecordingDuration] = useState(0)
+  
+  const recordingDurationRef = useRef(0)
+  const recordingStartedAtRef = useRef<number | null>(null)
+  const uploadedFilePathRef = useRef<string | null>(null)
+
   const [uploadMessage, setUploadMessage] = useState('')
+  const [technicalError, setTechnicalError] = useState('')
 
 
     useEffect(() => {
@@ -90,12 +96,16 @@ function App() {
 
   const canContinue = hasAllAnswers || hasHeardWords
 
+
     const startRecording = async () => {
       if (isRecording || mediaRecorderRef.current) return
     
       setRecordedAudioUrl('')
       setRecordedAudioBlob(null)
+      uploadedFilePathRef.current = null
       setRecordingDuration(0)
+      recordingDurationRef.current = 0
+      recordingStartedAtRef.current = null
     
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -105,83 +115,168 @@ function App() {
         },
       })
     
-      recordedChunksRef.current = []
+      try {
+        recordedChunksRef.current = []
     
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm',
-      })
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm',
+        })
     
-      mediaRecorderRef.current = mediaRecorder
+        mediaRecorderRef.current = mediaRecorder
     
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data)
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data)
+          }
         }
-      }
     
-      mediaRecorder.start()
-      setIsRecording(true)
+        recordingStartedAtRef.current = Date.now()
+        mediaRecorder.start()
+        setIsRecording(true)
+      } catch (error) {
+        stream.getTracks().forEach((track) => track.stop())
+        mediaRecorderRef.current = null
+        recordingStartedAtRef.current = null
+        throw error
+      }
     }
 
-  const stopRecording = () => {
+
+
+    const stopRecording = () => {
       const mediaRecorder = mediaRecorderRef.current
     
       if (!mediaRecorder) return
     
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(recordedChunksRef.current, {
-          type: 'audio/webm',
+          type: mediaRecorder.mimeType || 'audio/webm',
         })
     
         const audioUrl = URL.createObjectURL(audioBlob)
         setRecordedAudioUrl(audioUrl)
         setRecordedAudioBlob(audioBlob)
-
-        const audio = new Audio(audioUrl)
-
-        audio.addEventListener('loadedmetadata', () => {
-          setRecordingDuration(audio.duration)
-        })
+    
+        const startedAt = recordingStartedAtRef.current
+        const elapsedSeconds =
+          startedAt === null
+            ? 0
+            : (Date.now() - startedAt) / 1000
+    
+        const duration = Math.round(elapsedSeconds * 10) / 10
+    
+        recordingDurationRef.current = duration
+        setRecordingDuration(duration)
     
         mediaRecorder.stream.getTracks().forEach((track) => track.stop())
         mediaRecorderRef.current = null
+        recordingStartedAtRef.current = null
       }
     
       mediaRecorder.stop()
       setIsRecording(false)
-  }
+    }
+
 
   const SPEAKING_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzeMFszcqWuyo8qmjyQaJ8ETLQCPjUAUhAtZtD1XVvZE8SAmYsYQs_Q4gSoCd636W2iNA/exec'
 
-    
+    // TODO: REMOVE
+    /*
+    const MOCK_METADATA_ERROR = false
+    const mockMetadataErrorUsedRef = useRef(false)
+    */
 
 const uploadTaskRecording = async (
   taskId: string,
   audioBlob: Blob,
 ) => {
-  if (!testAttemptId || uploadInProgressRef.current) {
-  return false
+      if (!testAttemptId || uploadInProgressRef.current) {
+      return false
     }
+
+
+    if (
+      audioBlob.size === 0 ||
+      !Number.isFinite(recordingDurationRef.current) ||
+      recordingDurationRef.current <= 0
+    ) {
+      setUploadMessage(
+        'Запис не вдалося перевірити. Будь ласка, запишіть відповідь ще раз.',
+      )
+    
+    setTechnicalError(
+      `stage: recording_validation\n` +
+      `testAttemptId: ${testAttemptId}\n` +
+      `taskId: ${taskId}\n` +
+      `size: ${audioBlob.size}\n` +
+      `type: ${audioBlob.type || 'unknown'}\n` +
+      `duration: ${recordingDurationRef.current}`
+    )
+    
+      return false
+    }
+
     
     uploadInProgressRef.current = true
     setIsUploadingRecording(true)
     setUploadMessage('')
+    setTechnicalError('')
 
   try {
     await ensureSupabaseSession()
 
+
     const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
+    
+    if (uploadedFilePathRef.current !== filePath) {
+      const { error } = await supabase.storage
+        .from('speaking-audio')
+        .upload(filePath, audioBlob, {
+          contentType: 'audio/webm',
+        })
+    
+      if (error) {
+        setUploadMessage(
+          'Не вдалося завантажити запис. Спробуйте ще раз.',
+        )
+        setTechnicalError(
+          `stage: storage_upload\n` +
+          `testAttemptId: ${testAttemptId}\n` +
+          `taskId: ${taskId}\n` +
+          `storagePath: ${filePath}\n` +
+          `duration: ${recordingDurationRef.current}\n` +
+          `size: ${audioBlob.size}\n` +
+          `code: ${error.name || 'StorageError'}\n` +
+          `message: ${error.message || 'Unknown error'}`
+        )
+        return false
+      }
+    
+      uploadedFilePathRef.current = filePath
 
-    const { error } = await supabase.storage
-      .from('speaking-audio')
-      .upload(filePath, audioBlob, {
-        contentType: 'audio/webm',
-      })
-
-    if (error) {
-      setUploadMessage('Не вдалося надіслати запис. Спробуйте ще раз.')
-      return false
     }
+
+          // TODO remove
+        /*
+        if (MOCK_METADATA_ERROR && !mockMetadataErrorUsedRef.current) {
+          mockMetadataErrorUsedRef.current = true
+        
+          setUploadMessage(
+            'Запис завантажено, але не вдалося зберегти дані. Зверніться до викладача.',
+          )
+        
+          setTechnicalError(
+            `stage: metadata_insert\n` +
+            `code: MOCK_ERROR\n` +
+            `message: Simulated metadata insert failure\n` +
+            `testAttemptId: ${testAttemptId}\n` +
+            `taskId: ${taskId}\n` +
+            `storagePath: ${filePath}`
+          )
+        
+          return false
+        }
+        */
 
     const metadata: SpeakingRecordingMetadata = {
       testAttemptId,
@@ -189,7 +284,7 @@ const uploadTaskRecording = async (
       group,
       fullName,
       storagePath: filePath,
-      duration: recordingDuration,
+      duration: recordingDurationRef.current,
       submittedAt: new Date().toISOString(),
       uploadStatus: 'success',
     }
@@ -207,11 +302,30 @@ const uploadTaskRecording = async (
         upload_status: metadata.uploadStatus,
       })
 
-    if (metadataError) {
-      console.error('Metadata insert error:', metadataError)
-      setUploadMessage('Запис завантажено, але не вдалося зберегти дані. Зверніться до викладача.')
-      return false
-    }
+
+        if (metadataError) {
+          setUploadMessage(
+            'Запис завантажено, але не вдалося зберегти дані. Натисніть «Відправити» ще раз.',
+          )
+        
+          setTechnicalError(
+            `stage: metadata_insert\n` +
+            `testAttemptId: ${testAttemptId}\n` +
+            `taskId: ${taskId}\n` +
+            `storagePath: ${filePath}\n` +
+            `duration: ${metadata.duration}\n` +
+            `group: ${metadata.group}\n` +
+            `submittedAt: ${metadata.submittedAt}\n` +
+            `uploadStatus: ${metadata.uploadStatus}\n` +
+            `code: ${metadataError.code || 'unknown'}\n` +
+            `message: ${metadataError.message || 'Unknown error'}\n` +
+            `details: ${metadataError.details || 'none'}\n` +
+            `hint: ${metadataError.hint || 'none'}`
+          )
+        
+          return false
+        }
+
 
     try {
       await fetch(SPEAKING_SHEETS_URL, {
@@ -569,9 +683,16 @@ const uploadTaskRecording = async (
               )}
             </div>
 
+
             {uploadMessage && (
-              <p className="upload-message">{uploadMessage}</p>
+              <div className="upload-message">
+                <p>{uploadMessage}</p>
+                {technicalError && (
+                  <pre className="technical-error">{technicalError}</pre>
+                )}
+              </div>
             )}
+
           </section>
         </main>
       )
