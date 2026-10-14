@@ -78,7 +78,7 @@ function App() {
   const [recordedAudioUrl, setRecordedAudioUrl] = useState('')
   const [recordedAudioBlob, setRecordedAudioBlob] = useState<Blob | null>(null)
   const [, setRecordingDuration] = useState(0)
-  
+
   const recordingDurationRef = useRef(0)
   const recordingStartedAtRef = useRef<number | null>(null)
   const uploadedFilePathRef = useRef<string | null>(null)
@@ -87,9 +87,9 @@ function App() {
   const [technicalError, setTechnicalError] = useState('')
 
 
-    useEffect(() => {
-      window.scrollTo({ top: 0, behavior: 'instant' })
-    }, [screen, currentIndex])
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [screen, currentIndex])
 
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
@@ -116,101 +116,95 @@ function App() {
   // )
 
 
-    const startRecording = async () => {
-      if (isRecording || mediaRecorderRef.current) return
-    
-      setRecordedAudioUrl('')
-      setRecordedAudioBlob(null)
-      uploadedFilePathRef.current = null
-      setRecordingDuration(0)
-      recordingDurationRef.current = 0
-      recordingStartedAtRef.current = null
-    
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
+  const startRecording = async () => {
+    if (isRecording || mediaRecorderRef.current) return
+
+    setRecordedAudioUrl('')
+    setRecordedAudioBlob(null)
+    uploadedFilePathRef.current = null
+    setRecordingDuration(0)
+    recordingDurationRef.current = 0
+    recordingStartedAtRef.current = null
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    })
+
+    try {
+      recordedChunksRef.current = []
+
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm',
       })
-    
-      try {
-        recordedChunksRef.current = []
-    
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: 'audio/webm',
-        })
-    
-        mediaRecorderRef.current = mediaRecorder
-    
-        mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            recordedChunksRef.current.push(event.data)
-          }
+
+      mediaRecorderRef.current = mediaRecorder
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data)
         }
-    
-        recordingStartedAtRef.current = Date.now()
-        mediaRecorder.start()
-        setIsRecording(true)
-      } catch (error) {
-        stream.getTracks().forEach((track) => track.stop())
-        mediaRecorderRef.current = null
-        recordingStartedAtRef.current = null
-        throw error
       }
+
+      recordingStartedAtRef.current = Date.now()
+      mediaRecorder.start()
+      setIsRecording(true)
+    } catch (error) {
+      stream.getTracks().forEach((track) => track.stop())
+      mediaRecorderRef.current = null
+      recordingStartedAtRef.current = null
+      throw error
+    }
+  }
+
+
+
+  const stopRecording = () => {
+    const mediaRecorder = mediaRecorderRef.current
+
+
+    if (!mediaRecorder) return
+
+    mediaRecorder.onstop = () => {
+      const audioBlob = new Blob(recordedChunksRef.current, {
+        type: mediaRecorder.mimeType || 'audio/webm',
+      })
+
+      const startedAt = recordingStartedAtRef.current
+      const elapsedSeconds =
+        startedAt === null
+          ? 0
+          : (Date.now() - startedAt) / 1000
+
+      const duration = Math.round(elapsedSeconds * 10) / 10
+
+      recordingDurationRef.current = duration
+      setRecordingDuration(duration)
+
+      const audioUrl = URL.createObjectURL(audioBlob)
+      setRecordedAudioUrl(audioUrl)
+      setRecordedAudioBlob(audioBlob)
+
+      mediaRecorder.stream.getTracks().forEach((track) => track.stop())
+      mediaRecorderRef.current = null
+      recordingStartedAtRef.current = null
     }
 
-
-
-    const stopRecording = () => {
-      const mediaRecorder = mediaRecorderRef.current
-
-    
-      if (!mediaRecorder) return
-    
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(recordedChunksRef.current, {
-          type: mediaRecorder.mimeType || 'audio/webm',
-        })
-    
-        const startedAt = recordingStartedAtRef.current
-        const elapsedSeconds =
-          startedAt === null
-            ? 0
-            : (Date.now() - startedAt) / 1000
-    
-        const duration = Math.round(elapsedSeconds * 10) / 10
-    
-        recordingDurationRef.current = duration
-        setRecordingDuration(duration)
-    
-        const audioUrl = URL.createObjectURL(audioBlob)
-        setRecordedAudioUrl(audioUrl)
-        setRecordedAudioBlob(audioBlob)
-    
-        mediaRecorder.stream.getTracks().forEach((track) => track.stop())
-        mediaRecorderRef.current = null
-        recordingStartedAtRef.current = null
-      }
-    
-      mediaRecorder.stop()
-      setIsRecording(false)
-    }
+    mediaRecorder.stop()
+    setIsRecording(false)
+  }
 
 
   const SPEAKING_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzeMFszcqWuyo8qmjyQaJ8ETLQCPjUAUhAtZtD1XVvZE8SAmYsYQs_Q4gSoCd636W2iNA/exec'
 
-    // TODO: REMOVE
-    /*
-    const MOCK_METADATA_ERROR = false
-    const mockMetadataErrorUsedRef = useRef(false)
-    */
-
-const uploadTaskRecording = async (
-  taskId: string,
-  audioBlob: Blob,
-) => {
-      if (!testAttemptId || uploadInProgressRef.current) {
+  const uploadTaskRecording = async (
+    taskId: string,
+    audioBlob: Blob,
+  ) => {
+    if (!testAttemptId || uploadInProgressRef.current) {
       return false
     }
 
@@ -219,7 +213,7 @@ const uploadTaskRecording = async (
       setUploadMessage(
         'Запис порожній. Будь ласка, запишіть відповідь ще раз.',
       )
-    
+
       setTechnicalError(
         `stage: recording_validation\n` +
         `testAttemptId: ${testAttemptId}\n` +
@@ -227,228 +221,206 @@ const uploadTaskRecording = async (
         `size: ${audioBlob.size}\n` +
         `type: ${audioBlob.type || 'unknown'}`,
       )
-    
+
       return false
     }
 
-    
+
     uploadInProgressRef.current = true
     setIsUploadingRecording(true)
     setUploadMessage('')
     setTechnicalError('')
 
 
-try {
-  await ensureSupabaseSession()
+    try {
+      await ensureSupabaseSession()
 
-  let audioDuration: number
+      let audioDuration: number
 
-  try {
-    audioDuration = await getAudioBlobDuration(audioBlob)
+      try {
+        audioDuration = await getAudioBlobDuration(audioBlob)
 
-    recordingDurationRef.current = audioDuration
-    setRecordingDuration(audioDuration)
-  } catch (error) {
-    setUploadMessage(
-      'Не вдалося визначити тривалість запису. Будь ласка, спробуйте ще раз.',
-    )
-
-    setTechnicalError(
-      `stage: audio_duration_decode\n` +
-      `testAttemptId: ${testAttemptId}\n` +
-      `taskId: ${taskId}\n` +
-      `size: ${audioBlob.size}\n` +
-      `type: ${audioBlob.type || 'unknown'}\n` +
-      `message: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    )
-
-    return false
-  }
-
-  const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
-
-    
-    if (uploadedFilePathRef.current !== filePath) {
-      const { error } = await supabase.storage
-        .from('speaking-audio')
-        .upload(filePath, audioBlob, {
-          contentType: 'audio/webm',
-        })
-    
-      if (error) {
+        recordingDurationRef.current = audioDuration
+        setRecordingDuration(audioDuration)
+      } catch (error) {
         setUploadMessage(
-          'Не вдалося завантажити запис. Спробуйте ще раз.',
+          'Не вдалося визначити тривалість запису. Будь ласка, спробуйте ще раз.',
         )
+
         setTechnicalError(
-          `stage: storage_upload\n` +
+          `stage: audio_duration_decode\n` +
           `testAttemptId: ${testAttemptId}\n` +
           `taskId: ${taskId}\n` +
-          `storagePath: ${filePath}\n` +
-          `duration: ${recordingDurationRef.current}\n` +
           `size: ${audioBlob.size}\n` +
-          `code: ${error.name || 'StorageError'}\n` +
-          `message: ${error.message || 'Unknown error'}`
+          `type: ${audioBlob.type || 'unknown'}\n` +
+          `message: ${error instanceof Error ? error.message : 'Unknown error'}`,
         )
+
         return false
       }
-    
-      uploadedFilePathRef.current = filePath
 
-    }
+      const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
 
-          // TODO remove
-        /*
-        if (MOCK_METADATA_ERROR && !mockMetadataErrorUsedRef.current) {
-          mockMetadataErrorUsedRef.current = true
-        
+
+      if (uploadedFilePathRef.current !== filePath) {
+        const { error } = await supabase.storage
+          .from('speaking-audio')
+          .upload(filePath, audioBlob, {
+            contentType: 'audio/webm',
+          })
+
+        if (error) {
           setUploadMessage(
-            'Запис завантажено, але не вдалося зберегти дані. Зверніться до викладача.',
+            'Не вдалося завантажити запис. Спробуйте ще раз.',
           )
-        
           setTechnicalError(
-            `stage: metadata_insert\n` +
-            `code: MOCK_ERROR\n` +
-            `message: Simulated metadata insert failure\n` +
-            `testAttemptId: ${testAttemptId}\n` +
-            `taskId: ${taskId}\n` +
-            `storagePath: ${filePath}`
-          )
-        
-          return false
-        }
-        */  
-
-    const metadata: SpeakingRecordingMetadata = {
-      testAttemptId,
-      taskId,
-      group,
-      fullName,
-      storagePath: filePath,
-      duration: audioDuration,
-      submittedAt: new Date().toISOString(),
-      uploadStatus: 'success',
-    }
-
-
-    if (!Number.isFinite(audioDuration) || audioDuration <= 0) {
-      setUploadMessage(
-        'Не вдалося перевірити тривалість запису. Будь ласка, запишіть відповідь ще раз.',
-      )
-    
-      setTechnicalError(
-        `stage: metadata_duration_validation\n` +
-        `testAttemptId: ${testAttemptId}\n` +
-        `taskId: ${taskId}\n` +
-        `audioDuration: ${audioDuration}\n` +
-        `storagePath: ${filePath}`,
-      )
-    
-      return false
-    }
-
-
-    const { error: metadataError } = await supabase
-      .from('speaking_recordings')
-      .insert({
-        test_attempt_id: metadata.testAttemptId,
-        task_id: metadata.taskId,
-        group: metadata.group,
-        full_name: metadata.fullName,
-        storage_path: metadata.storagePath,
-        duration: metadata.duration,
-        submitted_at: metadata.submittedAt,
-        upload_status: metadata.uploadStatus,
-      })
-
-
-        if (metadataError) {
-          setUploadMessage(
-            'Запис завантажено, але не вдалося зберегти дані. Натисніть «Відправити» ще раз.',
-          )
-        
-          setTechnicalError(
-            `stage: metadata_insert\n` +
+            `stage: storage_upload\n` +
             `testAttemptId: ${testAttemptId}\n` +
             `taskId: ${taskId}\n` +
             `storagePath: ${filePath}\n` +
-            `duration: ${metadata.duration}\n` +
-            `group: ${metadata.group}\n` +
-            `submittedAt: ${metadata.submittedAt}\n` +
-            `uploadStatus: ${metadata.uploadStatus}\n` +
-            `code: ${metadataError.code || 'unknown'}\n` +
-            `message: ${metadataError.message || 'Unknown error'}\n` +
-            `details: ${metadataError.details || 'none'}\n` +
-            `hint: ${metadataError.hint || 'none'}`
+            `duration: ${recordingDurationRef.current}\n` +
+            `size: ${audioBlob.size}\n` +
+            `code: ${error.name || 'StorageError'}\n` +
+            `message: ${error.message || 'Unknown error'}`
           )
-        
           return false
         }
 
+        uploadedFilePathRef.current = filePath
 
-    try {
-      await fetch(SPEAKING_SHEETS_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8',
-        },
-        body: JSON.stringify(metadata),
-      })
+      }
+
+      const metadata: SpeakingRecordingMetadata = {
+        testAttemptId,
+        taskId,
+        group,
+        fullName,
+        storagePath: filePath,
+        duration: audioDuration,
+        submittedAt: new Date().toISOString(),
+        uploadStatus: 'success',
+      }
+
+
+      if (!Number.isFinite(audioDuration) || audioDuration <= 0) {
+        setUploadMessage(
+          'Не вдалося перевірити тривалість запису. Будь ласка, запишіть відповідь ще раз.',
+        )
+
+        setTechnicalError(
+          `stage: metadata_duration_validation\n` +
+          `testAttemptId: ${testAttemptId}\n` +
+          `taskId: ${taskId}\n` +
+          `audioDuration: ${audioDuration}\n` +
+          `storagePath: ${filePath}`,
+        )
+
+        return false
+      }
+
+
+      const { error: metadataError } = await supabase
+        .from('speaking_recordings')
+        .insert({
+          test_attempt_id: metadata.testAttemptId,
+          task_id: metadata.taskId,
+          group: metadata.group,
+          full_name: metadata.fullName,
+          storage_path: metadata.storagePath,
+          duration: metadata.duration,
+          submitted_at: metadata.submittedAt,
+          upload_status: metadata.uploadStatus,
+        })
+
+
+      if (metadataError) {
+        setUploadMessage(
+          'Запис завантажено, але не вдалося зберегти дані. Натисніть «Відправити» ще раз.',
+        )
+
+        setTechnicalError(
+          `stage: metadata_insert\n` +
+          `testAttemptId: ${testAttemptId}\n` +
+          `taskId: ${taskId}\n` +
+          `storagePath: ${filePath}\n` +
+          `duration: ${metadata.duration}\n` +
+          `group: ${metadata.group}\n` +
+          `submittedAt: ${metadata.submittedAt}\n` +
+          `uploadStatus: ${metadata.uploadStatus}\n` +
+          `code: ${metadataError.code || 'unknown'}\n` +
+          `message: ${metadataError.message || 'Unknown error'}\n` +
+          `details: ${metadataError.details || 'none'}\n` +
+          `hint: ${metadataError.hint || 'none'}`
+        )
+
+        return false
+      }
+
+
+      try {
+        await fetch(SPEAKING_SHEETS_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8',
+          },
+          body: JSON.stringify(metadata),
+        })
+      } catch (error) {
+        console.error('Google Sheets error:', error)
+      }
+
+      setUploadMessage('')
+
+      if (taskId === '1') {
+        setRecordedAudioUrl('')
+        setRecordedAudioBlob(null)
+        setSpeakingTask(2)
+      }
+
+      if (taskId === '2') {
+        setRecordedAudioUrl('')
+        setRecordedAudioBlob(null)
+        setSpeakingTask(3)
+      }
+
+      if (taskId === '3') {
+        setRecordedAudioUrl('')
+        setRecordedAudioBlob(null)
+        setScreen('thankyou')
+      }
+
+      return true
     } catch (error) {
-      console.error('Google Sheets error:', error)
-    }
-
-    setUploadMessage('')
-
-    if (taskId === '1') {
-      setRecordedAudioUrl('')
-      setRecordedAudioBlob(null)
-      setSpeakingTask(2)
-    }
-
-    if (taskId === '2') {
-      setRecordedAudioUrl('')
-      setRecordedAudioBlob(null)
-      setSpeakingTask(3)
-    }
-
-    if (taskId === '3') {
-      setRecordedAudioUrl('')
-      setRecordedAudioBlob(null)
-      setScreen('thankyou')
-    }
-
-    return true
-  } catch (error) {
-    console.error('Speaking upload failed:', error)
-    setUploadMessage('Не вдалося надіслати запис. Спробуйте ще раз.')
-    return false
-  } finally {
+      console.error('Speaking upload failed:', error)
+      setUploadMessage('Не вдалося надіслати запис. Спробуйте ще раз.')
+      return false
+    } finally {
       uploadInProgressRef.current = false
       setIsUploadingRecording(false)
+    }
   }
-}
-
-    
-    const testMode = new URLSearchParams(window.location.search).get('test')
 
 
-    const handleStart = () => {
-      if (!group.trim() || !fullName.trim()) return
-    
-      const attemptId = crypto.randomUUID()
-    
-      setTestAttemptId(attemptId)
-      setScreen('test')
-    }
+  const testMode = new URLSearchParams(window.location.search).get('test')
 
-    const handleSpeakingTestStart = () => {
-      if (!group.trim() || !fullName.trim()) return
-    
-      const attemptId = crypto.randomUUID()
-    
-      setTestAttemptId(attemptId)
-      setScreen('speaking-test')
-    }
+
+  const handleStart = () => {
+    if (!group.trim() || !fullName.trim()) return
+
+    const attemptId = crypto.randomUUID()
+
+    setTestAttemptId(attemptId)
+    setScreen('test')
+  }
+
+  const handleSpeakingTestStart = () => {
+    if (!group.trim() || !fullName.trim()) return
+
+    const attemptId = crypto.randomUUID()
+
+    setTestAttemptId(attemptId)
+    setScreen('speaking-test')
+  }
 
   const handlePlay = () => {
     if (!audioRef.current) return
@@ -478,7 +450,7 @@ try {
 
   const handleNext = async () => {
     if (isSubmitting) return
-        
+
     // setValidationMessage('')
 
     if (currentIndex === questions.length - 1) {
@@ -560,154 +532,154 @@ try {
               placeholder="Напишіть прізвище та ім'я"
             />
           </label>
-            
-            {uploadMessage && (
-              <p>{uploadMessage}</p>
-            )}
+
+          {uploadMessage && (
+            <p>{uploadMessage}</p>
+          )}
 
 
-            {testMode !== 'speaking' && (
-              <button
-                className="primary-button"
-                onClick={handleStart}
-                disabled={!group.trim() || !fullName.trim()}
-              >
-                Start Listening Test
-              </button>
-            )}
-            
-            {testMode !== 'listening' && (
-              <button
-                className="primary-button"
-                type="button"
-                onClick={handleSpeakingTestStart}
-                disabled={!group.trim() || !fullName.trim()}
-              >
-                Start Speaking Test
-              </button>
-            )}
+          {testMode !== 'speaking' && (
+            <button
+              className="primary-button"
+              onClick={handleStart}
+              disabled={!group.trim() || !fullName.trim()}
+            >
+              Start Listening Test
+            </button>
+          )}
+
+          {testMode !== 'listening' && (
+            <button
+              className="primary-button"
+              type="button"
+              onClick={handleSpeakingTestStart}
+              disabled={!group.trim() || !fullName.trim()}
+            >
+              Start Speaking Test
+            </button>
+          )}
 
         </section>
       </main>
     )
   }
 
-    if (screen === 'speaking-test') {
-      return (
-        <main className="app">
-          <section className="card">
-            <h1>
-              {speakingTask === 1
-                ? 'Task 1. A good day'
-                : speakingTask === 2
-                  ? 'Task 2. A good day / A bad day'
-                  : 'Task 3. Change the day'}
-            </h1>
-    
-            <p>
-              {speakingTask === 1
-                ? 'Розкажіть про день, який би ви вважали хорошим.'
-                : speakingTask === 2
-                  ? 'Подивіться на картинку. Розкажіть про те, що ви бачите.'
-                  : 'Уявіть, що у вас поганий день. Ви можете змінити лише щось одне, щоб день став кращим.'}
+  if (screen === 'speaking-test') {
+    return (
+      <main className="app">
+        <section className="card">
+          <h1>
+            {speakingTask === 1
+              ? 'Task 1. A good day'
+              : speakingTask === 2
+                ? 'Task 2. A good day / A bad day'
+                : 'Task 3. Change the day'}
+          </h1>
+
+          <p>
+            {speakingTask === 1
+              ? 'Розкажіть про день, який би ви вважали хорошим.'
+              : speakingTask === 2
+                ? 'Подивіться на картинку. Розкажіть про те, що ви бачите.'
+                : 'Уявіть, що у вас поганий день. Ви можете змінити лише щось одне, щоб день став кращим.'}
+          </p>
+
+          {speakingTask === 2 && (
+            <img
+              src="/listening-diagnostic/images/task-2.png"
+              alt="A pigeon carrying a bag of chips outside a shop"
+              className="speaking-task-image"
+            />
+          )}
+
+          {speakingTask === 1 ? (
+            <>
+              <p>Розкажіть:</p>
+              <ul>
+                <li>Where are you?</li>
+                <li>What do you do?</li>
+                <li>Who are you with?</li>
+                <li>Why is it a good day?</li>
+              </ul>
+            </>
+          ) : speakingTask === 2 ? (
+            <>
+              <p>Розкажіть:</p>
+              <ul>
+                <li>What can you see?</li>
+                <li>What is happening?</li>
+                <li>Is it a good or bad day? Why?</li>
+              </ul>
+            </>
+          ) : (
+            <>
+              <p>Скажіть:</p>
+              <ul>
+                <li>What would you change?</li>
+                <li>Why?</li>
+                <li>What would happen after that?</li>
+              </ul>
+            </>
+          )}
+
+          <h2>Useful phrases</h2>
+
+          {speakingTask === 1 ? (
+            <ul>
+              <li>It is a good day because …</li>
+              <li>I am …</li>
+              <li>I usually …</li>
+              <li>I am with …</li>
+              <li>I feel …</li>
+            </ul>
+          ) : speakingTask === 2 ? (
+            <ul>
+              <li>I can see...</li>
+            </ul>
+          ) : (
+            <ul>
+              <li>I would change...</li>
+              <li>It would be better because...</li>
+              <li>After that, I would...</li>
+            </ul>
+          )}
+
+          <h2>Help</h2>
+
+          <p>
+            Спробуйте відповісти англійською.
+            <br />
+            Якщо ви не знаєте, як сказати щось англійською,
+            скажіть українською, що саме ви хотіли б сказати.
+          </p>
+
+          <div className="speaking-controls">
+            <p className="recording-notice">
+              Ваша відповідь не повинна займати більше 1 хвилини.
             </p>
-
-            {speakingTask === 2 && (
-              <img
-                src="/listening-diagnostic/images/task-2.png"
-                alt="A pigeon carrying a bag of chips outside a shop"
-                className="speaking-task-image"
-              />
-            )}
-    
-            {speakingTask === 1 ? (
+            {!recordedAudioUrl && (
               <>
-                <p>Розкажіть:</p>
-                <ul>
-                  <li>Where are you?</li>
-                  <li>What do you do?</li>
-                  <li>Who are you with?</li>
-                  <li>Why is it a good day?</li>
-                </ul>
-              </>
-            ) : speakingTask === 2 ? (
-              <>
-                <p>Розкажіть:</p>
-                <ul>
-                  <li>What can you see?</li>
-                  <li>What is happening?</li>
-                  <li>Is it a good or bad day? Why?</li>
-                </ul>
-              </>
-            ) : (
-              <>
-                <p>Скажіть:</p>
-                <ul>
-                  <li>What would you change?</li>
-                  <li>Why?</li>
-                  <li>What would happen after that?</li>
-                </ul>
+                <button
+                  className={`record-button ${isRecording ? 'record-button-stop' : ''}`}
+                  type="button"
+                  onClick={isRecording ? stopRecording : startRecording}
+                >
+                  {isRecording ? 'Stop recording' : 'Start recording'}
+                </button>
               </>
             )}
-    
-            <h2>Useful phrases</h2>
-            
-            {speakingTask === 1 ? (
-              <ul>
-                <li>It is a good day because …</li>
-                <li>I am …</li>
-                <li>I usually …</li>
-                <li>I am with …</li>
-                <li>I feel …</li>
-              </ul>
-            ) : speakingTask === 2 ? (
-              <ul>
-                <li>I can see...</li>
-              </ul>
-            ) : (
-              <ul>
-                <li>I would change...</li>
-                <li>It would be better because...</li>
-                <li>After that, I would...</li>
-              </ul>
-            )}
-    
-            <h2>Help</h2>
-    
-            <p>
-              Спробуйте відповісти англійською.
-              <br />
-              Якщо ви не знаєте, як сказати щось англійською,
-              скажіть українською, що саме ви хотіли б сказати.
-            </p>
-    
-            <div className="speaking-controls">
-              <p className="recording-notice">
-                    Ваша відповідь не повинна займати більше 1 хвилини.
-              </p>
-              {!recordedAudioUrl && (
+
+            {recordedAudioUrl && (
               <>
-                  <button
-                    className={`record-button ${isRecording ? 'record-button-stop' : ''}`}
-                    type="button"
-                    onClick={isRecording ? stopRecording : startRecording}
-                  >
-                    {isRecording ? 'Stop recording' : 'Start recording'}
-                  </button>
-                </>
-                )}
+                <audio controls src={recordedAudioUrl} />
 
-              {recordedAudioUrl && (
-                <>
-                  <audio controls src={recordedAudioUrl} />
-
-                  <button
-                    className="rerecord-button"
-                    type="button"
-                    onClick={startRecording}
-                  >
-                    Перезаписати
-                  </button>
+                <button
+                  className="rerecord-button"
+                  type="button"
+                  onClick={startRecording}
+                >
+                  Перезаписати
+                </button>
 
                 <button
                   className="upload-button"
@@ -722,49 +694,49 @@ try {
                 >
                   {isUploadingRecording ? 'Надсилання...' : 'Відправити'}
                 </button>
-                </>
+              </>
+            )}
+          </div>
+
+
+          {uploadMessage && (
+            <div className="upload-message">
+              <p>{uploadMessage}</p>
+              {technicalError && (
+                <pre className="technical-error">{technicalError}</pre>
               )}
             </div>
+          )}
 
+        </section>
+      </main>
+    )
+  }
 
-            {uploadMessage && (
-              <div className="upload-message">
-                <p>{uploadMessage}</p>
-                {technicalError && (
-                  <pre className="technical-error">{technicalError}</pre>
-                )}
-              </div>
-            )}
+  const testType = new URLSearchParams(window.location.search).get('test') ?? 'unknown'
 
-          </section>
-        </main>
-      )
-    }
+  if (screen === 'thankyou') {
+    return (
+      <main className="app">
+        <section className="card thankyou-card">
+          <h1>Thank you!</h1>
 
-    const testType = new URLSearchParams(window.location.search).get('test') ?? 'unknown'
+          <p>Ви завершили тест.</p>
 
-    if (screen === 'thankyou') {
-      return (
-        <main className="app">
-          <section className="card thankyou-card">
-            <h1>Thank you!</h1>
-
-            <p>Ви завершили тест.</p>
-
-            <div className="thankyou-qr">
-                <QRCodeSVG
-                  value={`test=${testType}&attemptId=${testAttemptId}`}
-                  size={80}
-                  level="M"
-                  marginSize={1}
-                  fgColor="#555555"
-                  bgColor="#ffffff"
-                />
-            </div>
-          </section>
-        </main>
-      )
-    }
+          <div className="thankyou-qr">
+            <QRCodeSVG
+              value={`test=${testType}&attemptId=${testAttemptId}`}
+              size={80}
+              level="M"
+              marginSize={1}
+              fgColor="#555555"
+              bgColor="#ffffff"
+            />
+          </div>
+        </section>
+      </main>
+    )
+  }
 
   const questionCount = currentQuestion.subquestions?.length ?? 1
 
