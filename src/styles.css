@@ -460,4 +460,15 @@ input[type='text']:focus {
   color: #666;
   background: #f5f5f5;
   border-radius: 4px;
+
+
+.thankyou-qr {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  opacity: 0.8;
+}
+
+.thankyou-qr svg {
+  display: block;
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import questions from './data/questions.json'
 import { supabase, ensureSupabaseSession } from './supabase'
+import { QRCodeSVG } from 'qrcode.react'
 
 const GOOGLE_SCRIPT_URL =
   'https://script.google.com/macros/s/AKfycbxdneV7lcEHX7Au8dAkJif42CclSLxATYB71sDi5_Qb843g6r9gGW6nH6ZfkgZrBazH3A/exec'
@@ -757,19 +758,30 @@ try {
       )
     }
 
-  if (screen === 'thankyou') {
-    return (
-      <main className="app">
-        <section className="card thankyou-card">
-          <h1>Thank you!</h1>
+    const testType = new URLSearchParams(window.location.search).get('test') ?? 'unknown'
 
-          <p>
-            Ви завершили тест.
-          </p>
-        </section>
-      </main>
-    )
-  }
+    if (screen === 'thankyou') {
+      return (
+        <main className="app">
+          <section className="card thankyou-card">
+            <h1>Thank you!</h1>
+
+            <p>Ви завершили тест.</p>
+
+            <div className="thankyou-qr">
+                <QRCodeSVG
+                  value={`test=${testType}&attemptId=${testAttemptId}`}
+                  size={80}
+                  level="M"
+                  marginSize={1}
+                  fgColor="#555555"
+                  bgColor="#ffffff"
+                />
+            </div>
+          </section>
+        </main>
+      )
+    }
 
   const questionCount = currentQuestion.subquestions?.length ?? 1
 
