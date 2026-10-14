@@ -37,6 +37,26 @@ type SpeakingRecordingMetadata = {
   uploadStatus: 'success' | 'error'
 }
 
+async function getAudioBlobDuration(audioBlob: Blob): Promise<number> {
+  const audioContext = new AudioContext()
+
+  try {
+    const audioBuffer = await audioContext.decodeAudioData(
+      await audioBlob.arrayBuffer(),
+    )
+
+    const duration = Math.round(audioBuffer.duration * 10) / 10
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      throw new Error('Invalid audio duration')
+    }
+
+    return duration
+  } finally {
+    await audioContext.close()
+  }
+}
+
 function App() {
   const [screen, setScreen] = useState<'start' | 'test' | 'speaking-test' | 'thankyou'>('start')
   const [group, setGroup] = useState('')
@@ -145,6 +165,7 @@ function App() {
 
     const stopRecording = () => {
       const mediaRecorder = mediaRecorderRef.current
+
     
       if (!mediaRecorder) return
     
@@ -152,10 +173,6 @@ function App() {
         const audioBlob = new Blob(recordedChunksRef.current, {
           type: mediaRecorder.mimeType || 'audio/webm',
         })
-    
-        const audioUrl = URL.createObjectURL(audioBlob)
-        setRecordedAudioUrl(audioUrl)
-        setRecordedAudioBlob(audioBlob)
     
         const startedAt = recordingStartedAtRef.current
         const elapsedSeconds =
@@ -167,6 +184,10 @@ function App() {
     
         recordingDurationRef.current = duration
         setRecordingDuration(duration)
+    
+        const audioUrl = URL.createObjectURL(audioBlob)
+        setRecordedAudioUrl(audioUrl)
+        setRecordedAudioBlob(audioBlob)
     
         mediaRecorder.stream.getTracks().forEach((track) => track.stop())
         mediaRecorderRef.current = null
@@ -195,23 +216,18 @@ const uploadTaskRecording = async (
     }
 
 
-    if (
-      audioBlob.size === 0 ||
-      !Number.isFinite(recordingDurationRef.current) ||
-      recordingDurationRef.current <= 0
-    ) {
+    if (audioBlob.size === 0) {
       setUploadMessage(
-        'Запис не вдалося перевірити. Будь ласка, запишіть відповідь ще раз.',
+        'Запис порожній. Будь ласка, запишіть відповідь ще раз.',
       )
     
-    setTechnicalError(
-      `stage: recording_validation\n` +
-      `testAttemptId: ${testAttemptId}\n` +
-      `taskId: ${taskId}\n` +
-      `size: ${audioBlob.size}\n` +
-      `type: ${audioBlob.type || 'unknown'}\n` +
-      `duration: ${recordingDurationRef.current}`
-    )
+      setTechnicalError(
+        `stage: recording_validation\n` +
+        `testAttemptId: ${testAttemptId}\n` +
+        `taskId: ${taskId}\n` +
+        `size: ${audioBlob.size}\n` +
+        `type: ${audioBlob.type || 'unknown'}`,
+      )
     
       return false
     }
@@ -222,11 +238,36 @@ const uploadTaskRecording = async (
     setUploadMessage('')
     setTechnicalError('')
 
+
+try {
+  await ensureSupabaseSession()
+
+  let audioDuration: number
+
   try {
-    await ensureSupabaseSession()
+    audioDuration = await getAudioBlobDuration(audioBlob)
 
+    recordingDurationRef.current = audioDuration
+    setRecordingDuration(audioDuration)
+  } catch (error) {
+    setUploadMessage(
+      'Не вдалося визначити тривалість запису. Будь ласка, спробуйте ще раз.',
+    )
 
-    const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
+    setTechnicalError(
+      `stage: audio_duration_decode\n` +
+      `testAttemptId: ${testAttemptId}\n` +
+      `taskId: ${taskId}\n` +
+      `size: ${audioBlob.size}\n` +
+      `type: ${audioBlob.type || 'unknown'}\n` +
+      `message: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    )
+
+    return false
+  }
+
+  const filePath = `speaking/${testAttemptId}/task-${taskId}.webm`
+
     
     if (uploadedFilePathRef.current !== filePath) {
       const { error } = await supabase.storage
@@ -276,7 +317,7 @@ const uploadTaskRecording = async (
         
           return false
         }
-        */
+        */  
 
     const metadata: SpeakingRecordingMetadata = {
       testAttemptId,
@@ -284,10 +325,28 @@ const uploadTaskRecording = async (
       group,
       fullName,
       storagePath: filePath,
-      duration: recordingDurationRef.current,
+      duration: audioDuration,
       submittedAt: new Date().toISOString(),
       uploadStatus: 'success',
     }
+
+
+    if (!Number.isFinite(audioDuration) || audioDuration <= 0) {
+      setUploadMessage(
+        'Не вдалося перевірити тривалість запису. Будь ласка, запишіть відповідь ще раз.',
+      )
+    
+      setTechnicalError(
+        `stage: metadata_duration_validation\n` +
+        `testAttemptId: ${testAttemptId}\n` +
+        `taskId: ${taskId}\n` +
+        `audioDuration: ${audioDuration}\n` +
+        `storagePath: ${filePath}`,
+      )
+    
+      return false
+    }
+
 
     const { error: metadataError } = await supabase
       .from('speaking_recordings')
